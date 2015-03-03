@@ -25,7 +25,7 @@
 
 #define UART_TX_BUF_SIZE 256                                                          /**< UART TX buffer size. */
 #define UART_RX_BUF_SIZE 1
-#define AES_ECB_BUFF_SIZE 16
+#define AES_ECB_BUFF_SIZE 20*64
 
 const uint8_t leds_list[LEDS_NUMBER] = LEDS_LIST;
 uint8_t keyArray[16] ={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -140,7 +140,7 @@ int main(void)
             printf("AEAD_AES_%d_OCB_TAGLEN %d Output: ", KEYBYTES*8, TAGBYTES*8);
             for (i=0; i<TAGBYTES; i++) printf("%02X", final[i]); printf("\n");
         }
-
+        print_hex_memory(c);
         /* Decrypt and test for all zeros and authenticity */
         result = ocb_decrypt(p, zeroes, nonce, c, next, final, TAGBYTES);
         if (result)  printf("FAIL\n");
