@@ -28,7 +28,7 @@
 #define AES_ECB_BUFF_SIZE 20*64
 
 const uint8_t leds_list[LEDS_NUMBER] = LEDS_LIST;
-uint8_t keyArray[16] ={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
 
 void uart_error_handle(app_uart_evt_t * p_event)
 {
@@ -42,13 +42,11 @@ void uart_error_handle(app_uart_evt_t * p_event)
     }
 }
 
-void print_hex_memory(void *mem) {
+void print_hex_memory(void *mem, int len) {
   int i;
   uint8_t *p = (uint8_t *)mem;
-  for (i=0;i<AES_ECB_BUFF_SIZE;i++) {
+  for (i=0;i<len;i++) {
     printf("0x%02x ", p[i]);
-    if (i%16==0)
-      printf("\n");
   }
   printf("\n");
 }
@@ -57,7 +55,7 @@ void print_hex_memory(void *mem) {
 int main(void)
 {
 
-    int32_t volatile temp;
+//    int32_t volatile temp;
     uint32_t err_code;
     // Configure LED-pins as outputs.
     LEDS_CONFIGURE(LEDS_MASK);
@@ -84,82 +82,61 @@ int main(void)
                     err_code);
 
     APP_ERROR_CHECK(err_code);
+    printf("Booted \n");
+    uint8_t ones[20] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+    uint8_t zeroes[20] = {0,};
+    uint8_t nonce[12] = {0,};
+    uint8_t p[20] = {0,};
+    uint8_t final[16];
+    uint8_t *c;
+    uint8_t i, next;
+    uint8_t result;
+    uint8_t  keyArray[KEYBYTES] = {'A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A'};
+    uint8_t *aesKey = (uint8_t *)keyArray;
 
-    uint8_t *aesKey = keyArray;
-    ocb_init(aesKey);
-//    uint8_t src[AES_ECB_BUFF_SIZE]={1};
-//    uint8_t dst[AES_ECB_BUFF_SIZE]={0};
-//    nrf_ecb_set_key(aesKey);
-    while (true)
-    {
-        for (int i = 0; i < LEDS_NUMBER; i++)
-        {
-            LEDS_INVERT(1 << leds_list[i]);
-
-        }
-        NRF_TEMP->TASKS_START = 1; /** Start the temperature measurement. */
-
-        /* Busy wait while temperature measurement is not finished, you can skip waiting if you enable interrupt for DATARDY event and read the result in the interrupt. */
-        /*lint -e{845} // A zero has been given as right argument to operator '|'" */
-        while (NRF_TEMP->EVENTS_DATARDY == 0)
-        {
-            // Do nothing.
-        }
-        NRF_TEMP->EVENTS_DATARDY = 0;
-
-        /**@note Workaround for PAN_028 rev2.0A anomaly 29 - TEMP: Stop task clears the TEMP register. */
-        temp = (nrf_temp_read() / 4);
-
-        /**@note Workaround for PAN_028 rev2.0A anomaly 30 - TEMP: Temp module analog front end does not power down when DATARDY event occurs. */
-        NRF_TEMP->TASKS_STOP = 1; /** Stop the temperature measurement. */
-
-        printf("Actual temperature: %d\n\r", (int)temp);
-        uint8_t zeroes[128] = {0,};
-        uint8_t nonce[12] = {1,};
-        uint8_t p[128] = {0,};
-        uint8_t final[16];
-        uint8_t *c;
-        unsigned i, next;
-        int result;
-
-        /* Encrypt and output RFC vector */
-        c = (uint8_t *) malloc((uint8_t )20*64);
-        next = 0;
-        for (i=0; i<128; i++) {
-            nonce[11] = i;
-            ocb_encrypt(c+next, zeroes, nonce, zeroes, i, zeroes, i);
-            next = next + i + TAGBYTES;
-            ocb_encrypt(c+next, zeroes, nonce, zeroes, 0, zeroes, i);
-            next = next + i + TAGBYTES;
-            ocb_encrypt(c+next, zeroes, nonce, zeroes, i, zeroes, 0);
-            next = next + TAGBYTES;
-        }
-        nonce[11] = 0;
-        ocb_encrypt(final, zeroes, nonce, c, next, zeroes, 0);
-        if (NONCEBYTES == 12) {
-            printf("AEAD_AES_%d_OCB_TAGLEN %d Output: ", KEYBYTES*8, TAGBYTES*8);
-            for (i=0; i<TAGBYTES; i++) printf("%02X", final[i]); printf("\n");
-        }
-        print_hex_memory(c);
-        /* Decrypt and test for all zeros and authenticity */
-        result = ocb_decrypt(p, zeroes, nonce, c, next, final, TAGBYTES);
-        if (result)  printf("FAIL\n");
-        next = 0;
-        for (i=0; i<128; i++) {
-            nonce[11] = i;
-            result = ocb_decrypt(p, zeroes, nonce, zeroes, i, c+next, i+TAGBYTES);
-            if (result || memcmp(p,zeroes,i)) { printf("FAIL\n"); return 0; }
-            next = next + i + TAGBYTES;
-            result = ocb_decrypt(p, zeroes, nonce, zeroes, 0, c+next, i+TAGBYTES);
-            if (result || memcmp(p,zeroes,i)) { printf("FAIL\n"); return 0; }
-            next = next + i + TAGBYTES;
-            result = ocb_decrypt(p, zeroes, nonce, zeroes, i, c+next, TAGBYTES);
-            if (result || memcmp(p,zeroes,i)) { printf("FAIL\n"); return 0; }
-            next = next + TAGBYTES;
-        }
-        nrf_delay_ms(2000);
-
+    bool init = ocb_init(aesKey);
+    if(!init) return 0;
+    printf("AES init Successfull \n");
+    nrf_delay_ms(200);
+    /* Encrypt and output RFC vector */
+    c = (uint8_t *) malloc(20*8+32);
+    next = 0;
+    for (i=0; i<128; i++) {
+        nonce[11] = i;
+        ocb_encrypt(c+next, aesKey, nonce, zeroes, i, ones, i);
+        next = next + i + TAGBYTES;
+        ocb_encrypt(c+next, aesKey, nonce, zeroes, 0, ones, i);
+        next = next + i + TAGBYTES;
+        ocb_encrypt(c+next, aesKey, nonce, zeroes, i, ones, 0);
+        next = next + TAGBYTES;
     }
+    print_hex_memory(c, 20*8+32);
+    nonce[11] = 0;
+    ocb_encrypt(final, zeroes, nonce, c, next, zeroes, 0);
+    if (NONCEBYTES == 12) {
+        printf("AEAD_AES_%d_OCB_TAGLEN%d Output: ", KEYBYTES*8, TAGBYTES*8);
+        for (i=0; i<TAGBYTES; i++) printf("%02X", final[i]); printf("\n");
+    }
+
+    /* Decrypt and test for all zeros and authenticity */
+    result = ocb_decrypt(p, zeroes, nonce, c, next, final, TAGBYTES);
+    if (result) { printf("FAIL\n"); return 0; }
+    next = 0;
+    for (i=0; i<128; i++) {
+        nonce[11] = i;
+        result = ocb_decrypt(p, aesKey, nonce, zeroes, i, c+next, i+TAGBYTES);
+        if (result || memcmp(p,ones,i)) { printf("FAIL\n"); return 0; }
+        next = next + i + TAGBYTES;
+        result = ocb_decrypt(p, aesKey, nonce, zeroes, 0, c+next, i+TAGBYTES);
+        if (result || memcmp(p,ones,i)) { printf("FAIL\n"); return 0; }
+        next = next + i + TAGBYTES;
+        result = ocb_decrypt(p, aesKey, nonce, zeroes, i, c+next, TAGBYTES);
+        if (result || memcmp(p,ones,i)) { printf("FAIL\n"); return 0; }
+        next = next + TAGBYTES;
+    }
+    print_hex_memory(p, 20);
+    return 0;
+
 }
 
 

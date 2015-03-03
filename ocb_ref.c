@@ -21,20 +21,36 @@
 / Comments are welcome: Ted Krovetz <ted@krovetz.net>
 /------------------------------------------------------------------------- */
 
-/* http://web.cs.ucdavis.edu/~rogaway/ocb/news/code/ocb_ref.c
- *
- * This is a quick and dirty port of OCB for NRF51 series device
- *
- *                                 */
+/* This implementation is not optimized and is suceptible to timing attack.
+/  It mirrors the OCB RFC to aid in understanding and should not be used
+/  for any other purpose. This implementation manipulates data as bytes
+/  rather than machine words, which avoids endian issues entirely.
+/  To compile: gcc -lcrypto ocb_ref.c                                      */
 
 #include <string.h>
-#include <stdlib.h>
-#include "ocb.h"
-#include "nrf_ecb.h"
+#include <openssl/aes.h>
 
+#define CAESAR 0      /* Set non-zero for submission to CAESAR competition */
 
+#if CAESAR
+#include "api.h"
+#include "crypto_aead.h"
+#define KEYBYTES   CRYPTO_KEYBYTES
+#define NONCEBYTES CRYPTO_NPUBBYTES
+#define TAGBYTES   CRYPTO_ABYTES
+#else
+#define KEYBYTES   (128/8)
+#define NONCEBYTES (96/8)
+#define TAGBYTES   (128/8)
+#endif
 
-typedef uint8_t block[16];
+#if !(KEYBYTES==16 || KEYBYTES==24 || KEYBYTES==32) ||  \
+     (NONCEBYTES > 15 || NONCEBYTES < 0) ||             \
+     (TAGBYTES > 16 || TAGBYTES < 1)
+#error -- KEYBYTES, NONCEBYTES, or TAGBYTES is an illegal value
+#endif
+
+typedef unsigned char block[16];
 
 /* ------------------------------------------------------------------------- */
 
@@ -48,7 +64,7 @@ static void xor_block(block d, block s1, block s2) {
 
 static void double_block(block d, block s) {
     unsigned i;
-    uint8_t tmp = s[0];
+    unsigned char tmp = s[0];
     for (i=0; i<15; i++)
         d[i] = (s[i] << 1) | (s[i+1] >> 7);
     d[15] = (s[15] << 1) ^ ((tmp >> 7) * 135);
@@ -56,7 +72,7 @@ static void double_block(block d, block s) {
 
 /* ------------------------------------------------------------------------- */
 
-static void calc_L_i(block l, block ldollar, uint8_t i) {
+static void calc_L_i(block l, block ldollar, unsigned i) {
     double_block(l, ldollar);         /* l is now L_0               */
     for ( ; (i&1)==0 ; i>>=1)
         double_block(l,l);            /* double for each trailing 0 */
@@ -64,16 +80,18 @@ static void calc_L_i(block l, block ldollar, uint8_t i) {
 
 /* ------------------------------------------------------------------------- */
 
-static void hash(block result, uint8_t *k,
-                 uint8_t *a, uint8_t abytes) {
-
+static void hash(block result, unsigned char *k,
+                 unsigned char *a, unsigned abytes) {
+    AES_KEY aes_key;
     block lstar, ldollar, offset, sum, tmp;
-    uint8_t i;
+    unsigned i;
 
     /* Key-dependent variables */
 
+    /* L_* = ENCIPHER(K, zeros(128)) */
+    AES_set_encrypt_key(k, KEYBYTES*8, &aes_key);
     memset(tmp, 0, 16);
-    nrf_ecb_crypt(tmp, lstar);
+    AES_encrypt(tmp, lstar, &aes_key);
     /* L_$ = double(L_*) */
     double_block(ldollar, lstar);
 
@@ -89,7 +107,7 @@ static void hash(block result, uint8_t *k,
         xor_block(offset, offset, tmp);
         /* Sum_i = Sum_{i-1} xor ENCIPHER(K, A_i xor Offset_i) */
         xor_block(tmp, offset, a);
-        nrf_ecb_crypt(tmp, tmp);
+        AES_encrypt(tmp, tmp, &aes_key);
         xor_block(sum, sum, tmp);
     }
 
@@ -105,7 +123,7 @@ static void hash(block result, uint8_t *k,
         tmp[abytes] = 0x80;
         xor_block(tmp, offset, tmp);
         /* Sum = Sum_m xor ENCIPHER(K, tmp) */
-        nrf_ecb_crypt(tmp, tmp);
+        AES_encrypt(tmp, tmp, &aes_key);
         xor_block(sum, tmp, sum);
     }
 
@@ -114,24 +132,27 @@ static void hash(block result, uint8_t *k,
 
 /* ------------------------------------------------------------------------- */
 
-static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
-                     uint8_t *a, uint8_t abytes,
-                     uint8_t *in, uint8_t inbytes, int encrypting) {
+static int ocb_crypt(unsigned char *out, unsigned char *k, unsigned char *n,
+                     unsigned char *a, unsigned abytes,
+                     unsigned char *in, unsigned inbytes, int encrypting) {
+    AES_KEY aes_encrypt_key, aes_decrypt_key;
     block lstar, ldollar, sum, offset, ktop, pad, nonce, tag, tmp;
-    uint8_t stretch[24];
-    uint8_t bottom, byteshift, bitshift, i;
+    unsigned char stretch[24];
+    unsigned bottom, byteshift, bitshift, i;
 
     /* Setup AES and strip ciphertext of its tag */
     if ( ! encrypting ) {
          if (inbytes < TAGBYTES) return -1;
          inbytes -= TAGBYTES;
+         AES_set_decrypt_key(k, KEYBYTES*8, &aes_decrypt_key);
     }
+    AES_set_encrypt_key(k, KEYBYTES*8, &aes_encrypt_key);
 
     /* Key-dependent variables */
 
     /* L_* = ENCIPHER(K, zeros(128)) */
     memset(tmp, 0, 16);
-    nrf_ecb_crypt(tmp, lstar);
+    AES_encrypt(tmp, lstar, &aes_encrypt_key);
     /* L_$ = double(L_*) */
     double_block(ldollar, lstar);
 
@@ -140,13 +161,13 @@ static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
     /* Nonce = zeros(127-bitlen(N)) || 1 || N */
     memset(nonce,0,16);
     memcpy(&nonce[16-NONCEBYTES],n,NONCEBYTES);
-    nonce[0] = (uint8_t)(((TAGBYTES * 8) % 128) << 1);
+    nonce[0] = (unsigned char)(((TAGBYTES * 8) % 128) << 1);
     nonce[16-NONCEBYTES-1] |= 0x01;
     /* bottom = str2num(Nonce[123..128]) */
     bottom = nonce[15] & 0x3F;
     /* Ktop = ENCIPHER(K, Nonce[1..122] || zeros(6)) */
     nonce[15] &= 0xC0;
-    nrf_ecb_crypt(nonce, ktop);
+    AES_encrypt(nonce, ktop, &aes_encrypt_key);
     /* Stretch = Ktop || (Ktop[1..64] xor Ktop[9..72]) */
     memcpy(stretch, ktop, 16);
     memcpy(tmp, &ktop[1], 8);
@@ -175,13 +196,13 @@ static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
         xor_block(tmp, offset, in);
         if (encrypting) {
             /* P_i = Offset_i xor DECIPHER(K, C_i xor Offset_i) */
-        	nrf_ecb_crypt(tmp, tmp);
+            AES_encrypt(tmp, tmp, &aes_encrypt_key);
             xor_block(out, offset, tmp);
             /* Checksum_i = Checksum_{i-1} xor P_i */
             xor_block(sum, in, sum);
         } else {
             /* P_i = Offset_i xor DECIPHER(K, C_i xor Offset_i) */
-        	nrf_ecb_crypt(tmp, tmp);
+            AES_decrypt(tmp, tmp, &aes_decrypt_key);
             xor_block(out, offset, tmp);
             /* Checksum_i = Checksum_{i-1} xor P_i */
             xor_block(sum, out, sum);
@@ -195,7 +216,7 @@ static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
         /* Offset_* = Offset_m xor L_* */
         xor_block(offset, offset, lstar);
         /* Pad = ENCIPHER(K, Offset_*) */
-        nrf_ecb_crypt(offset, pad);
+        AES_encrypt(offset, pad, &aes_encrypt_key);
 
         if (encrypting) {
             /* Checksum_* = Checksum_m xor (P_* || 1 || zeros(127-bitlen(P_*))) */
@@ -223,7 +244,7 @@ static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
     /* Tag = ENCIPHER(K, Checksum xor Offset xor L_$) xor HASH(K,A) */
     xor_block(tmp, sum, offset);
     xor_block(tmp, tmp, ldollar);
-    nrf_ecb_crypt(tmp, tag);
+    AES_encrypt(tmp, tag, &aes_encrypt_key);
     hash(tmp, k, a, abytes);
     xor_block(tag, tmp, tag);
 
@@ -236,36 +257,118 @@ static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
 
 /* ------------------------------------------------------------------------- */
 
-/**
- * c out buffer
- * k key
- * n nonce
- * a associated data
- * abytes  plaintext
- * p input
- * pbytes
- *
- */
+#define OCB_ENCRYPT 1
+#define OCB_DECRYPT 0
 
-void ocb_encrypt(uint8_t *c, uint8_t *k, uint8_t *n,
-                 uint8_t *a, uint8_t abytes,
-                 uint8_t *p, uint8_t pbytes) {
+void ocb_encrypt(unsigned char *c, unsigned char *k, unsigned char *n,
+                 unsigned char *a, unsigned abytes,
+                 unsigned char *p, unsigned pbytes) {
     ocb_crypt(c, k, n, a, abytes, p, pbytes, OCB_ENCRYPT);
 }
 
 /* ------------------------------------------------------------------------- */
 
-int ocb_decrypt(uint8_t *p, uint8_t *k, uint8_t *n,
-                uint8_t *a, uint8_t abytes,
-                uint8_t *c, uint8_t cbytes) {
+int ocb_decrypt(unsigned char *p, unsigned char *k, unsigned char *n,
+                unsigned char *a, unsigned abytes,
+                unsigned char *c, unsigned cbytes) {
     return ocb_crypt(p, k, n, a, abytes, c, cbytes, OCB_DECRYPT);
 }
 
-bool ocb_init(const uint8_t * key) {
-	if(!nrf_ecb_init() ) return false;
-	nrf_ecb_set_key(key);
-	return true;
+/* ------------------------------------------------------------------------- */
+
+#if CAESAR
+
+int crypto_aead_encrypt(
+unsigned char *c,unsigned long long *clen,
+const unsigned char *m,unsigned long long mlen,
+const unsigned char *ad,unsigned long long adlen,
+const unsigned char *nsec,
+const unsigned char *npub,
+const unsigned char *k
+)
+{
+    *clen = mlen + TAGBYTES;
+    ocb_crypt(c, k, npub, ad, adlen, m, mlen, OCB_ENCRYPT);
+    return 0;
 }
 
+int crypto_aead_decrypt(
+unsigned char *m,unsigned long long *mlen,
+unsigned char *nsec,
+const unsigned char *c,unsigned long long clen,
+const unsigned char *ad,unsigned long long adlen,
+const unsigned char *npub,
+const unsigned char *k
+)
+{
+    *mlen = clen - TAGBYTES;
+    return ocb_crypt(m, k, npub, ad, adlen, c, clen, OCB_DECRYPT);
+}
 
+#else   /* Test against RFC's vectors */
 
+#include <stdio.h>
+#include <stdlib.h>
+
+void print_hex_memory(void *mem, int len) {
+  int i;
+  uint8_t *p = (uint8_t *)mem;
+  for (i=0;i<len;i++) {
+    printf("0x%02x ", p[i]);
+  }
+  printf("\n");
+}
+
+int main() {
+    unsigned char zeroes[128] = {0,};
+    unsigned char ones[20] = {2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+    unsigned char nonce[12] = {0,};
+    unsigned char p[128] = {0,};
+    unsigned char final[16];
+    unsigned char *c;
+    unsigned i, next;
+    int result;
+    uint8_t  keyArray[KEYBYTES] = {'A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A'};
+    uint8_t *aesKey = (uint8_t *)keyArray;
+
+    /* Encrypt and output RFC vector */
+    c = malloc(20*8+32);
+    next = 0;
+    for (i=0; i<128; i++) {
+        nonce[11] = i;
+        ocb_encrypt(c+next, aesKey, nonce, zeroes, i, ones, i);
+        next = next + i + TAGBYTES;
+        ocb_encrypt(c+next, aesKey, nonce, zeroes, 0, ones, i);
+        next = next + i + TAGBYTES;
+        ocb_encrypt(c+next, aesKey, nonce, zeroes, i, ones, 0);
+        next = next + TAGBYTES;
+    }
+    print_hex_memory(c, 20*8+32);
+    nonce[11] = 0;
+    ocb_encrypt(final, zeroes, nonce, c, next, zeroes, 0);
+    if (NONCEBYTES == 12) {
+        printf("AEAD_AES_%d_OCB_TAGLEN%d Output: ", KEYBYTES*8, TAGBYTES*8);
+        for (i=0; i<TAGBYTES; i++) printf("%02X", final[i]); printf("\n");
+    }
+
+    /* Decrypt and test for all zeros and authenticity */
+    result = ocb_decrypt(p, zeroes, nonce, c, next, final, TAGBYTES);
+    if (result) { printf("FAIL\n"); return 0; }
+    next = 0;
+    for (i=0; i<128; i++) {
+        nonce[11] = i;
+        result = ocb_decrypt(p, aesKey, nonce, zeroes, i, c+next, i+TAGBYTES);
+        if (result || memcmp(p,ones,i)) { printf("FAIL\n"); return 0; }
+        next = next + i + TAGBYTES;
+        result = ocb_decrypt(p, aesKey, nonce, zeroes, 0, c+next, i+TAGBYTES);
+        if (result || memcmp(p,ones,i)) { printf("FAIL\n"); return 0; }
+        next = next + i + TAGBYTES;
+        result = ocb_decrypt(p, aesKey, nonce, zeroes, i, c+next, TAGBYTES);
+        if (result || memcmp(p,ones,i)) { printf("FAIL\n"); return 0; }
+        next = next + TAGBYTES;
+    }
+    print_hex_memory(p, 20);
+    return 0;
+}
+
+#endif
