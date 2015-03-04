@@ -83,58 +83,75 @@ int main(void)
 
     APP_ERROR_CHECK(err_code);
     printf("Booted \n");
-    uint8_t ones[20] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
-    uint8_t zeroes[20] = {0,};
-    uint8_t nonce[12] = {0,};
-    uint8_t p[20] = {0,};
-    uint8_t final[16];
-    uint8_t *c;
-    uint8_t i, next;
-    uint8_t result;
+
+    unsigned char zeroes[128] = {0,};
+    unsigned char plainData[16] = {2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+    unsigned char nonce[16] = {0,};
+    //unsigned char p[128] = {0,};
+    unsigned char final[16];
+    unsigned char *c;
+    unsigned i, next;
+
     uint8_t  keyArray[KEYBYTES] = {'A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A'};
     uint8_t *aesKey = (uint8_t *)keyArray;
-
     bool init = ocb_init(aesKey);
     if(!init) return 0;
     printf("AES init Successfull \n");
-    nrf_delay_ms(200);
+
+    printf("KEY in hex \n");
+	  for (i=0; i<16; i++)
+	    printf("%X", keyArray[i]/16), printf("%X", keyArray[i]%16);
+	  printf("\n");
+
+	  printf("data in hex \n");
+	  for (i=0; i<16; i++)
+	    printf("%X", plainData[i]/16), printf("%X", plainData[i]%16);
+	  printf("\n");
+	  printf("header in hex \n");
+	  for (i=0; i<16; i++)
+	    printf("%X", zeroes[i]/16), printf("%X", zeroes[i]%16);
+	  printf("\n");
+
+
     /* Encrypt and output RFC vector */
-    c = (uint8_t *) malloc(20*8+32);
+    c = (uint8_t *) malloc(16*8+32);
     next = 0;
     for (i=0; i<128; i++) {
         nonce[11] = i;
-        ocb_encrypt(c+next, aesKey, nonce, zeroes, i, ones, i);
+        ocb_encrypt(c+next, aesKey, nonce, zeroes, i, plainData, i);
         next = next + i + TAGBYTES;
-        ocb_encrypt(c+next, aesKey, nonce, zeroes, 0, ones, i);
+        ocb_encrypt(c+next, aesKey, nonce, zeroes, 0, plainData, i);
         next = next + i + TAGBYTES;
-        ocb_encrypt(c+next, aesKey, nonce, zeroes, i, ones, 0);
+        ocb_encrypt(c+next, aesKey, nonce, zeroes, i, plainData, 0);
         next = next + TAGBYTES;
     }
-    print_hex_memory(c, 20*8+32);
     nonce[11] = 0;
+    for (i=0; i<16; i++)
+   	    printf("%X", nonce[i]/16), printf("%X", nonce[i]%16);
+   	  printf("\n");
     ocb_encrypt(final, zeroes, nonce, c, next, zeroes, 0);
     if (NONCEBYTES == 12) {
         printf("AEAD_AES_%d_OCB_TAGLEN%d Output: ", KEYBYTES*8, TAGBYTES*8);
         for (i=0; i<TAGBYTES; i++) printf("%02X", final[i]); printf("\n");
     }
 
-    /* Decrypt and test for all zeros and authenticity */
-    result = ocb_decrypt(p, zeroes, nonce, c, next, final, TAGBYTES);
-    if (result) { printf("FAIL\n"); return 0; }
-    next = 0;
-    for (i=0; i<128; i++) {
-        nonce[11] = i;
-        result = ocb_decrypt(p, aesKey, nonce, zeroes, i, c+next, i+TAGBYTES);
-        if (result || memcmp(p,ones,i)) { printf("FAIL\n"); return 0; }
-        next = next + i + TAGBYTES;
-        result = ocb_decrypt(p, aesKey, nonce, zeroes, 0, c+next, i+TAGBYTES);
-        if (result || memcmp(p,ones,i)) { printf("FAIL\n"); return 0; }
-        next = next + i + TAGBYTES;
-        result = ocb_decrypt(p, aesKey, nonce, zeroes, i, c+next, TAGBYTES);
-        if (result || memcmp(p,ones,i)) { printf("FAIL\n"); return 0; }
-        next = next + TAGBYTES;
-    }
-    print_hex_memory(p, 20);
+//    /* Decrypt and test for all zeros and authenticity */
+//    result = ocb_decrypt(p, zeroes, nonce, c, next, final, TAGBYTES);
+//    if (result) { printf("FAIL\n"); return 0; }
+//    next = 0;
+//    for (i=0; i<128; i++) {
+//        nonce[11] = i;
+//        result = ocb_decrypt(p, aesKey, nonce, zeroes, i, c+next, i+TAGBYTES);
+//        if (result || memcmp(p,plainData,i)) { printf("FAIL\n"); return 0; }
+//        next = next + i + TAGBYTES;
+//        result = ocb_decrypt(p, aesKey, nonce, zeroes, 0, c+next, i+TAGBYTES);
+//        if (result || memcmp(p,plainData,i)) { printf("FAIL\n"); return 0; }
+//        next = next + i + TAGBYTES;
+//        result = ocb_decrypt(p, aesKey, nonce, zeroes, i, c+next, TAGBYTES);
+//        if (result || memcmp(p,plainData,i)) { printf("FAIL\n"); return 0; }
+//        next = next + TAGBYTES;
+//    }
+//    print_hex_memory(p, 20);
     return 0;
 
 }

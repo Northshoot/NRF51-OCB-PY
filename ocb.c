@@ -34,7 +34,7 @@
 
 
 
-typedef uint8_t block[16];
+typedef unsigned char block[16];
 
 /* ------------------------------------------------------------------------- */
 
@@ -48,7 +48,7 @@ static void xor_block(block d, block s1, block s2) {
 
 static void double_block(block d, block s) {
     unsigned i;
-    uint8_t tmp = s[0];
+    unsigned char tmp = s[0];
     for (i=0; i<15; i++)
         d[i] = (s[i] << 1) | (s[i+1] >> 7);
     d[15] = (s[15] << 1) ^ ((tmp >> 7) * 135);
@@ -56,7 +56,7 @@ static void double_block(block d, block s) {
 
 /* ------------------------------------------------------------------------- */
 
-static void calc_L_i(block l, block ldollar, uint8_t i) {
+static void calc_L_i(block l, block ldollar, unsigned char i) {
     double_block(l, ldollar);         /* l is now L_0               */
     for ( ; (i&1)==0 ; i>>=1)
         double_block(l,l);            /* double for each trailing 0 */
@@ -64,11 +64,11 @@ static void calc_L_i(block l, block ldollar, uint8_t i) {
 
 /* ------------------------------------------------------------------------- */
 
-static void hash(block result, uint8_t *k,
-                 uint8_t *a, uint8_t abytes) {
+static void hash(block result, unsigned char *k,
+                 unsigned char *a, unsigned char abytes) {
 
     block lstar, ldollar, offset, sum, tmp;
-    uint8_t i;
+    unsigned char i;
 
     /* Key-dependent variables */
 
@@ -114,12 +114,12 @@ static void hash(block result, uint8_t *k,
 
 /* ------------------------------------------------------------------------- */
 
-static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
-                     uint8_t *a, uint8_t abytes,
-                     uint8_t *in, uint8_t inbytes, int encrypting) {
+static int ocb_crypt(unsigned char *out, unsigned char *k, unsigned char *n,
+                     unsigned char *a, unsigned abytes,
+                     unsigned char *in, unsigned inbytes, int encrypting) {
     block lstar, ldollar, sum, offset, ktop, pad, nonce, tag, tmp;
-    uint8_t stretch[24];
-    uint8_t bottom, byteshift, bitshift, i;
+    unsigned char stretch[24];
+    unsigned char bottom, byteshift, bitshift, i;
 
     /* Setup AES and strip ciphertext of its tag */
     if ( ! encrypting ) {
@@ -140,7 +140,7 @@ static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
     /* Nonce = zeros(127-bitlen(N)) || 1 || N */
     memset(nonce,0,16);
     memcpy(&nonce[16-NONCEBYTES],n,NONCEBYTES);
-    nonce[0] = (uint8_t)(((TAGBYTES * 8) % 128) << 1);
+    nonce[0] = (unsigned char)(((TAGBYTES * 8) % 128) << 1);
     nonce[16-NONCEBYTES-1] |= 0x01;
     /* bottom = str2num(Nonce[123..128]) */
     bottom = nonce[15] & 0x3F;
@@ -247,21 +247,21 @@ static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
  *
  */
 
-void ocb_encrypt(uint8_t *c, uint8_t *k, uint8_t *n,
-                 uint8_t *a, uint8_t abytes,
-                 uint8_t *p, uint8_t pbytes) {
+void ocb_encrypt(unsigned char *c, unsigned char *k, unsigned char *n,
+                 unsigned char *a, unsigned abytes,
+                 unsigned char *p, unsigned pbytes) {
     ocb_crypt(c, k, n, a, abytes, p, pbytes, OCB_ENCRYPT);
 }
 
 /* ------------------------------------------------------------------------- */
 
-int ocb_decrypt(uint8_t *p, uint8_t *k, uint8_t *n,
-                uint8_t *a, uint8_t abytes,
-                uint8_t *c, uint8_t cbytes) {
+int ocb_decrypt(unsigned char *p, unsigned char *k, unsigned char *n,
+                unsigned char *a, unsigned abytes,
+                unsigned char *c, unsigned cbytes) {
     return ocb_crypt(p, k, n, a, abytes, c, cbytes, OCB_DECRYPT);
 }
 
-bool ocb_init(const uint8_t * key) {
+bool ocb_init(const unsigned char * key) {
 	if(!nrf_ecb_init() ) return false;
 	nrf_ecb_set_key(key);
 	return true;

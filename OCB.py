@@ -7,22 +7,24 @@
 
 from ocb.aes import AES
 from ocb import OCB
+import binascii
 
 
 
 if __name__ == "__main__":
     aes = AES(128)
     ocb = OCB(aes)
-    key = bytearray().fromhex('A45F5FDEA5C088D1D7C8BE37CABC8C5C')
+    key = bytearray().fromhex('41414141414141414141414141414141')
     ocb.setKey(key)
 
-    nonce = bytearray(range(16))
+    nonce = bytearray().fromhex('00000000000000000000000000000000')
+
     ocb.setNonce(nonce)
-    plaintext = bytearray('The Magic Words are Squeamish Ossifrage')
-    header = bytearray('Recipient: john.doe@example.com')
+    plaintext = bytearray().fromhex('02020101010101010101010101010101') #bytearray('The Magic Words are Squeamish Ossifrage')
+    header = bytearray().fromhex('00000000000000000000000000000000')
     (tag,ciphertext) = ocb.encrypt(plaintext, header)
-    print(tag)
-    print(ciphertext)
+    print("TAG: ", binascii.hexlify(tag))
+    print("DTA: ",binascii.hexlify(ciphertext))
 
     #Encryption will reset _nonce_ status, so that it needs to be set to a new value.
 
@@ -38,5 +40,4 @@ if __name__ == "__main__":
     ciphertext[3] = 0
     print(ocb.decrypt(header, ciphertext, tag))
     #The same happens if header is modified (even ciphertext was not):
-    header[3] = 0
-    print( ocb.decrypt(header, ciphertext, tag))
+

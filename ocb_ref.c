@@ -28,6 +28,7 @@
 /  To compile: gcc -lcrypto ocb_ref.c                                      */
 
 #include <string.h>
+#include <stdlib.h>
 #include <openssl/aes.h>
 
 #define CAESAR 0      /* Set non-zero for submission to CAESAR competition */
@@ -51,7 +52,14 @@
 #endif
 
 typedef unsigned char block[16];
-
+void print_hex_memory(void *mem, int len) {
+  int i;
+  uint8_t *p = (uint8_t *)mem;
+  for (i=0;i<len;i++) {
+    printf("0x%02x ", p[i]);
+  }
+  printf("\n");
+}
 /* ------------------------------------------------------------------------- */
 
 static void xor_block(block d, block s1, block s2) {
@@ -153,6 +161,7 @@ static int ocb_crypt(unsigned char *out, unsigned char *k, unsigned char *n,
     /* L_* = ENCIPHER(K, zeros(128)) */
     memset(tmp, 0, 16);
     AES_encrypt(tmp, lstar, &aes_encrypt_key);
+    print_hex_memory(tmp,16);
     /* L_$ = double(L_*) */
     double_block(ldollar, lstar);
 
@@ -310,14 +319,7 @@ const unsigned char *k
 #include <stdio.h>
 #include <stdlib.h>
 
-void print_hex_memory(void *mem, int len) {
-  int i;
-  uint8_t *p = (uint8_t *)mem;
-  for (i=0;i<len;i++) {
-    printf("0x%02x ", p[i]);
-  }
-  printf("\n");
-}
+
 
 int main() {
     unsigned char zeroes[128] = {0,};
