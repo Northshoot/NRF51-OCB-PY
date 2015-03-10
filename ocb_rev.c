@@ -275,94 +275,40 @@ int ocb_decrypt(uint8_t *p, uint8_t *k, uint8_t *n,
     return ocb_crypt(p, k, n, a, abytes, c, cbytes, OCB_DECRYPT);
 }
 
-/* ------------------------------------------------------------------------- */
 
-#if CAESAR
-
-int crypto_aead_encrypt(
-uint8_t *c,unsigned long long *clen,
-const uint8_t *m,unsigned long long mlen,
-const uint8_t *ad,unsigned long long adlen,
-const uint8_t *nsec,
-const uint8_t *npub,
-const uint8_t *k
-)
-{
-    *clen = mlen + TAGBYTES;
-    ocb_crypt(c, k, npub, ad, adlen, m, mlen, OCB_ENCRYPT);
-    return 0;
-}
-
-int crypto_aead_decrypt(
-uint8_t *m,unsigned long long *mlen,
-uint8_t *nsec,
-const uint8_t *c,unsigned long long clen,
-const uint8_t *ad,unsigned long long adlen,
-const uint8_t *npub,
-const uint8_t *k
-)
-{
-    *mlen = clen - TAGBYTES;
-    return ocb_crypt(m, k, npub, ad, adlen, c, clen, OCB_DECRYPT);
-}
-
-#else   /* Test against RFC's vectors */
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#define PLAIN_SIZE 32
 int main() {
-    uint8_t zeroes[128];
-    uint8_t nonce[12] = {0,};
-    uint8_t p[128] = {0,};
-    uint8_t final[16];
+    uint8_t text[PLAIN_SIZE]={0,};
+    uint8_t zeroes[PLAIN_SIZE]={0,};
+    uint8_t nonce[16] = {0,};
+    uint8_t p[PLAIN_SIZE] = {0,};
+    uint8_t tag[16];
+    uint8_t  keyArray[KEYBYTES] = {0,};
     uint8_t *c;
     unsigned i, next;
     int result;
-    for (i=0; i<(128); i++) {
-    	zeroes[i]=1;
+//    for(i=0;i<PLAIN_SIZE;i++) {
+//    	text[i]=i;
+//    }
 
-        }
 
     /* Encrypt and output RFC vector */
-    c = malloc(22400);
-    next = 0;
-    for (i=0; i<128; i++) {
-        nonce[11] = i;
-        ocb_encrypt(c+next, zeroes, nonce, zeroes, i, zeroes, i);
-        next = next + i + TAGBYTES;
-        ocb_encrypt(c+next, zeroes, nonce, zeroes, 0, zeroes, i);
-        next = next + i + TAGBYTES;
-        ocb_encrypt(c+next, zeroes, nonce, zeroes, i, zeroes, 0);
-        next = next + TAGBYTES;
-    }
-    nonce[11] = 0;
-    ocb_encrypt(final, zeroes, nonce, c, next, zeroes, 0);
-    if (NONCEBYTES == 12) {
-        printf("AEAD_AES_%d_OCB_TAGLEN%d Output: ", KEYBYTES*8, TAGBYTES*8);
-        for (i=0; i<TAGBYTES; i++) printf("%02X", final[i]); printf("\n");
-    }
-
-    /* Decrypt and test for all zeros and authenticity */
-    result = ocb_decrypt(p, zeroes, nonce, c, next, final, TAGBYTES);
-    if (result) { printf("FAIL\n"); return 0; }
-    next = 0;
-    for (i=0; i<128; i++) {
-        nonce[11] = i;
-        result = ocb_decrypt(p, zeroes, nonce, zeroes, i, c+next, i+TAGBYTES);
-        if (result || memcmp(p,zeroes,i)) { printf("FAIL\n"); return 0; }
-        next = next + i + TAGBYTES;
-        result = ocb_decrypt(p, zeroes, nonce, zeroes, 0, c+next, i+TAGBYTES);
-        if (result || memcmp(p,zeroes,i)) { printf("FAIL\n"); return 0; }
-        next = next + i + TAGBYTES;
-        result = ocb_decrypt(p, zeroes, nonce, zeroes, i, c+next, TAGBYTES);
-        if (result || memcmp(p,zeroes,i)) { printf("FAIL\n"); return 0; }
-        next = next + TAGBYTES;
-    }
-    for (i=0; i<(128); i++) printf("%d", zeroes[i]); printf("\n");
-    for (i=0; i<(128); i++) printf("%d", p[i]); printf("\n");
+    c = malloc(PLAIN_SIZE+TAGBYTES);
+    ocb_encrypt(c, keyArray, nonce, zeroes, PLAIN_SIZE, text, PLAIN_SIZE);
+    printf("Chipper: \n");
+    for (i=0; i<(PLAIN_SIZE+TAGBYTES); i++) printf("%u, ",(unsigned int) *(c+i)); printf("\n");
+    printf("Plain \n");
+    for (i=0; i<(PLAIN_SIZE); i++) printf("%u", (unsigned int) text[i]); printf("\n");
+    printf("Decrypted\n");
+    ocb_decrypt(p, keyArray, nonce, zeroes, PLAIN_SIZE, c, PLAIN_SIZE+TAGBYTES);
+    for (i=0; i<(PLAIN_SIZE); i++) printf("%u", (unsigned int)p[i]); printf("\n");
     free(c);
+
+
     return 0;
 }
 
-#endif
+

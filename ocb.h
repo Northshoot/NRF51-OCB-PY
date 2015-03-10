@@ -26,15 +26,15 @@
 #endif
 
 /* ------------------------------------------------------------------------- */
-void ocb_encrypt(unsigned char *c, unsigned char *k, unsigned char *n,
-		unsigned char *a, unsigned abytes,
-		unsigned char *p, unsigned pbytes);
+void ocb_encrypt(uint8_t *c, uint8_t *k, uint8_t *n,
+		uint8_t *a, unsigned abytes,
+		uint8_t *p, unsigned pbytes);
 
 /* ------------------------------------------------------------------------- */
 
-int ocb_decrypt(unsigned char *p, unsigned char *k, unsigned char *n,
-		unsigned char *a, unsigned abytes,
-		unsigned char *c, unsigned cbytes) ;
+//int ocb_decrypt(uint8_t *p, uint8_t *k, uint8_t *n,
+//		uint8_t *a, unsigned abytes,
+//		uint8_t *c, unsigned cbytes) ;
 
 /* ------------------------------------------------------------------------- */
 bool ocb_init(const uint8_t * key) ;

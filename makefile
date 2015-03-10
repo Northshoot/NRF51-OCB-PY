@@ -46,8 +46,10 @@ $(NRF51SDK)/components/libraries/util/app_error.c \
 $(NRF51SDK)/components/libraries/gpiote/app_gpiote.c \
 $(NRF51SDK)/components/drivers_nrf/uart/app_uart_fifo.c \
 $(NRF51SDK)/components/drivers_nrf/hal/nrf_ecb.c \
-main.c \
+$(NRF51SDK)/components/softdevice/common/softdevice_handler/softdevice_handler.c \
+$(NRF51SDK)/components/libraries/timer/app_timer.c \
 ocb.c \
+$(MAIN_FILE) \
 
 #assembly files common to all targets
 ASM_SOURCE_FILES  = $(NRF51SDK)/components/toolchain/gcc/gcc_startup_nrf51.s
@@ -59,9 +61,12 @@ INC_PATHS += -I$(NRF51SDK)/components/drivers_nrf/uart
 INC_PATHS += -I$(NRF51SDK)/components/libraries/fifo
 INC_PATHS += -I$(NRF51SDK)/examples/bsp
 INC_PATHS += -I$(NRF51SDK)/components/libraries/util
-INC_PATHS += -I$(NRF51SDK)/components/drivers_nrf/nrf_soc_nosd
 INC_PATHS += -I$(NRF51SDK)/components/libraries/gpiote
 INC_PATHS += -I$(NRF51SDK)/components/drivers_nrf/hal
+INC_PATHS += -I$(NRF51SDK)/components/softdevice/s110/headers
+INC_PATHS += -I$(NRF51SDK)/components/softdevice/common/softdevice_handler
+INC_PATHS += -I$(NRF51SDK)/components/libraries/scheduler
+INC_PATHS += -I$(NRF51SDK)/components/libraries/timer/
 
 OBJECT_DIRECTORY = _build
 LISTING_DIRECTORY = $(OBJECT_DIRECTORY)
@@ -73,7 +78,10 @@ BUILD_DIRECTORIES := $(sort $(OBJECT_DIRECTORY) $(OUTPUT_BINARY_DIRECTORY) $(LIS
 #flags common to all targets
 CFLAGS  = -DNRF51
 CFLAGS += -DBSP_DEFINES_ONLY
-CFLAGS += -DBOARD_PCA10031
+CFLAGS += -DBOARD_PCA10028
+CFLAGS += -DBLE_STACK_SUPPORT_REQD
+CFLAGS += -DS110
+CFLAGS += -DSOFTDEVICE_PRESENT
 CFLAGS += -mcpu=cortex-m0
 CFLAGS += -mthumb -mabi=aapcs --std=gnu99
 CFLAGS += -Wall -Werror -O3
@@ -85,6 +93,7 @@ CFLAGS += -flto -fno-builtin
 # keep every function in separate section. This will allow linker to dump unused functions
 LDFLAGS += -Xlinker -Map=$(LISTING_DIRECTORY)/$(OUTPUT_FILENAME).map
 LDFLAGS += -mthumb -mabi=aapcs -L $(TEMPLATE_PATH) -T$(LINKER_SCRIPT)
+LDFLAGS += -u _printf_float
 LDFLAGS += -mcpu=cortex-m0
 # let linker to dump unused sections
 LDFLAGS += -Wl,--gc-sections
@@ -95,7 +104,12 @@ LDFLAGS += --specs=nano.specs -lc -lnosys
 ASMFLAGS += -x assembler-with-cpp
 ASMFLAGS += -DNRF51
 ASMFLAGS += -DBSP_DEFINES_ONLY
-ASMFLAGS += -DBOARD_PCA10031
+ASMFLAGS += -DBOARD_PCA10028
+ASMFLAGS += -DBLE_STACK_SUPPORT_REQD
+ASMFLAGS += -DS110
+ASMFLAGS += -DSOFTDEVICE_PRESENT
+ASMFLAGS += -DBOARD_PCA10028
+
 #default target - first one defined
 default: clean nrf51422_xxac
 
@@ -124,7 +138,7 @@ vpath %.s $(ASM_PATHS)
 OBJECTS = $(C_OBJECTS) $(ASM_OBJECTS)
 
 nrf51422_xxac: OUTPUT_FILENAME := nrf51422_xxac
-nrf51422_xxac: LINKER_SCRIPT=$(NRF51SDK)/components/toolchain/gcc/gcc_nrf51_blank_xxac.ld
+nrf51422_xxac: LINKER_SCRIPT=$(NRF51SDK)/components/toolchain/gcc/gcc_nrf51_s110_xxac.ld
 nrf51422_xxac: $(BUILD_DIRECTORIES) $(OBJECTS)
 	@echo Linking target: $(OUTPUT_FILENAME).out
 	$(NO_ECHO)$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $(OUTPUT_BINARY_DIRECTORY)/$(OUTPUT_FILENAME).out
