@@ -1,2 +1,8 @@
 # NRF51-OCB-PY
-OCB implementation for NRF51822
+A port of OCB implementation for NRF51 using softdevice.
+
+## Usage
+
+## Copyright
+
+
