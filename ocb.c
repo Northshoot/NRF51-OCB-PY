@@ -50,20 +50,13 @@ typedef uint8_t AES_KEY[SOC_ECB_KEY_LENGTH];
 
 
 
-static inline void AES_encrypt(block tmp, block lstar, uint8_t* aes_key) {
-	int i;
+static inline void AES_encrypt(block in, block out, uint8_t* aes_key) {
 	nrf_ecb_hal_data_t datain = { .key = { 0, }, .cleartext = { 0, }, .ciphertext =
 			{ 0, } };
-	memcpy(&datain.key, aes_key, KEYBYTES);
-	memcpy(&datain.cleartext, &lstar, BLOCK_SIZE);
-	for (i = 0; i < (16); i++)
-		printf("%lu", (unsigned long)lstar[i]);
-	printf("\n");
-	for (i = 0; i < (16); i++)
-		printf("%lu", (unsigned long)datain.cleartext[i]);
-	printf("\n");
+	memcpy(datain.key, aes_key, KEYBYTES);
+	memcpy(datain.cleartext, in, BLOCK_SIZE);
 	sd_ecb_block_encrypt(&datain);
-	memcpy(tmp, &datain.ciphertext, BLOCK_SIZE);
+	memcpy(out, datain.ciphertext, BLOCK_SIZE);
 }
 
 /* ------------------------------------------------------------------------- */

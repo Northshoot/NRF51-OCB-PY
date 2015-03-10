@@ -5,6 +5,7 @@
  *      Author: lauril
  */
 
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -14,7 +15,6 @@
 #include "nrf_delay.h"
 #include "nrf_gpio.h"
 #include "boards.h"
-#include <stdio.h>
 #include "nrf.h"
 #include "nrf_temp.h"
 #include "app_uart.h"

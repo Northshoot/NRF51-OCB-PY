@@ -149,8 +149,6 @@ static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
     }
     AES_set_encrypt_key(k, KEYBYTES*8, &aes_encrypt_key);
 
-    /* Key-dependent variables */
-
     /* L_* = ENCIPHER(K, zeros(128)) */
     memset(tmp, 0, 16);
     AES_encrypt(tmp, lstar, &aes_encrypt_key);
