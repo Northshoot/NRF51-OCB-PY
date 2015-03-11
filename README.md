@@ -16,6 +16,35 @@ Compile and upload nrf application
 make && nrfjprog program -s /PATH_TO_SDK/s110_nrf51822_7.1.0/s110_nrf51822_7.1.0_softdevice.hex -c _build/nrf51422_xxac.hex
 
 
+## needed improvements
+### Dynamic array length:
+right now these values in C library
+#define KEYSIZE  16
+#define DATASIZE  32
+#define TAGSIZE  16
+#define CIPHERSIZE  DATASIZE+TAGSIZE
+
+must match python data packet to c
+KEYSIZE = 16
+DATASIZE = 32
+TAGSIZE = 16
+CIPHERSIZE = DATASIZE+TAGSIZE
+KEYBYTES = c_uint8*KEYSIZE
+DATABYTES = c_uint8*DATASIZE
+CIPHERBYTES = c_uint8 * CIPHERSIZE
+
+class EncryptedData(Structure):
+    _fields_ = [
+        ("datalength", c_uint32),
+        ("key", KEYBYTES),
+        ("nonce", KEYBYTES),
+        ("assoc", DATABYTES),
+        ("cipher", CIPHERBYTES),
+        ("cleartext", DATABYTES)]
+        
+would be nice to have "automagical" allocation
+
+
 ## Copyright
 the origial OCB is patented and subject to copyright. Please refere it for usage
 http://web.cs.ucdavis.edu/~rogaway/ocb/license.htm

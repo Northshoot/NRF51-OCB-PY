@@ -38,7 +38,6 @@
 #include <openssl/aes.h>
 #include <stdint.h>
 
-#define CAESAR 0      /* Set non-zero for submission to CAESAR competition */
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 #define KEYBYTES   (128/8)
@@ -254,27 +253,10 @@ static int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n,
 #define OCB_ENCRYPT 1
 #define OCB_DECRYPT 0
 
-static void ocb_encrypt(uint8_t *c, uint8_t *k, uint8_t *n,
-                 uint8_t *a, unsigned abytes,
-                 uint8_t *p, unsigned pbytes) {
-    ocb_crypt(c, k, n, a, abytes, p, pbytes, OCB_ENCRYPT);
-}
-
-/* ------------------------------------------------------------------------- */
-
-static int ocb_decrypt(uint8_t *p, uint8_t *k, uint8_t *n,
-                uint8_t *a, unsigned abytes,
-                uint8_t *c, unsigned cbytes) {
-    return ocb_crypt(p, k, n, a, abytes, c, cbytes, OCB_DECRYPT);
-}
-
-
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#define MAX_KEYBYTES 16
-#define MAX_DATABYTES 4086
 #define KEYSIZE  16
 #define DATASIZE  32
 #define TAGSIZE  16
@@ -283,76 +265,64 @@ static int ocb_decrypt(uint8_t *p, uint8_t *k, uint8_t *n,
 typedef struct CryptoData
 {
    uint32_t datalenght;
-   uint8_t  key[MAX_KEYBYTES];
-   uint8_t  nonce[MAX_KEYBYTES];
-   uint8_t  cipher[MAX_DATABYTES];
-   uint8_t  cleartext[MAX_DATABYTES];
+   uint8_t  key[KEYSIZE];
+   uint8_t  nonce[KEYSIZE];
+   uint8_t  assoc[DATASIZE];
+   uint8_t  cipher[CIPHERSIZE];
+   uint8_t  cleartext[DATASIZE];
 } CryptoData;
 
  int py_ocb_decrypt(CryptoData *cryptodata)
 {
-    int i;
-    uint8_t zero[MAX_KEYBYTES] ={0,};
-    uint8_t nonce[MAX_KEYBYTES] ={0,};
-    uint8_t a[MAX_KEYBYTES] ={0,};
+int i;
 
     i = ocb_crypt(cryptodata->cleartext,
     		cryptodata->key,
-			cryptodata->nonce, a, MAX_KEYBYTES, //ignoring associative text for now
-			cryptodata->cipher,
+			cryptodata->nonce,
+			cryptodata->assoc,
 			cryptodata->datalenght,
+			cryptodata->cipher,
+			cryptodata->datalenght+16,
 			OCB_DECRYPT);
 
     return i;
 }
+#define PLAIN_SIZE 32
+
+ //function to test OCB on ero vectors, just sanity check
+ static void testOCB(){
+ 	static uint32_t s_ticks;
+ 	static uint32_t e_ticks;
+ 	static uint32_t r_ticks;
+ 	uint32_t err = 0;
+
+ 	uint8_t text[PLAIN_SIZE] = { 0, };
+ 	uint8_t zeroes[16] = { 0, };
+ 	uint8_t nonce[16] = { 0, };
+
+ 	uint8_t keyArray[KEYBYTES] = { 0, };
+ 	uint8_t *c;
+ 	unsigned i;
+ 	/* Encrypt and output RFC vector */
+ 	c = malloc(PLAIN_SIZE + TAGBYTES);
+ 	ocb_crypt(c, keyArray, nonce, zeroes, PLAIN_SIZE, text, PLAIN_SIZE, OCB_ENCRYPT);
+
+ 	for (i = 0; i < (PLAIN_SIZE + TAGBYTES); i++)
+ 		printf("%d, ", (unsigned int) *(c + i));
+ 	printf("\n");
+
+ 	free(c);
+ }
 
  int py_ocb_encrypt(CryptoData *cryptodata)
 {
-    int i;
-    uint8_t zero[MAX_KEYBYTES] ={0,};
-    uint8_t nonce[MAX_KEYBYTES] ={0,};
-    uint8_t a[MAX_KEYBYTES] ={0,};
-    i = ocb_crypt(cryptodata->cipher,
+    return ocb_crypt(cryptodata->cipher,
     		cryptodata->key,
-			cryptodata->nonce, a, MAX_KEYBYTES, //ignoring associative text for now
+			cryptodata->nonce,
+			cryptodata->assoc,
+			cryptodata->datalenght,
 			cryptodata->cleartext,
 			cryptodata->datalenght,
 			OCB_ENCRYPT);
-
-    return i;
 }
-
-//#include <stdio.h>
-//#include <stdlib.h>
-//#define PLAIN_SIZE 32
-//int main() {
-//    uint8_t text[PLAIN_SIZE]={0,};
-//    uint8_t zeroes[PLAIN_SIZE]={0,};
-//    uint8_t nonce[16] = {0,};
-//    uint8_t p[PLAIN_SIZE] = {0,};
-//    uint8_t tag[16];
-//    uint8_t  keyArray[KEYBYTES] = {0,};
-//    uint8_t *c;
-//    unsigned i, next;
-//    int result;
-////    for(i=0;i<PLAIN_SIZE;i++) {
-////    	text[i]=i;
-////    }
-//
-//
-//    /* Encrypt and output RFC vector */
-//    c = malloc(PLAIN_SIZE+TAGBYTES);
-//    ocb_encrypt(c, keyArray, nonce, zeroes, PLAIN_SIZE, text, PLAIN_SIZE);
-//    printf("Chipper: \n");
-//    for (i=0; i<(PLAIN_SIZE+TAGBYTES); i++) printf("%u, ",(unsigned int) *(c+i)); printf("\n");
-//    printf("Plain \n");
-//    for (i=0; i<(PLAIN_SIZE); i++) printf("%u", (unsigned int) text[i]); printf("\n");
-//    printf("Decrypted\n");
-//    ocb_decrypt(p, keyArray, nonce, zeroes, PLAIN_SIZE, c, PLAIN_SIZE+TAGBYTES);
-//    for (i=0; i<(PLAIN_SIZE); i++) printf("%u", (unsigned int)p[i]); printf("\n");
-//    free(c);
-//
-//
-//    return 0;
-//}
 

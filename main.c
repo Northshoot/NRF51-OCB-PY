@@ -59,7 +59,7 @@ static void testOCB(){
 	uint32_t err = 0;
 
 	uint8_t text[PLAIN_SIZE] = { 0, };
-	uint8_t zeroes[PLAIN_SIZE] = { 0, };
+	uint8_t zeroes[16] = { 0, };
 	uint8_t nonce[16] = { 0, };
 
 	uint8_t keyArray[KEYBYTES] = { 0, };
