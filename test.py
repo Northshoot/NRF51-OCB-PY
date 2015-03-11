@@ -59,13 +59,22 @@ if __name__ == '__main__':
 
     from ctypes import cdll
     encrypt_lib = cdll.LoadLibrary("ocb_encrypt_lib.so")
-    encrypt = encrypt_lib.ocb_decncrypt
+    encrypt = encrypt_lib.py_ocb_encrypt
+    decrypt = encrypt_lib.py_ocb_decrypt
     encrypt.argtypes = [POINTER(EncryptedData)]
     encrypt.restype = c_int
     data_pkt = EncryptedData(32)
     print 'BlockLength =',data_pkt.datalength
     data_pkt.key= (KEYBYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
     data_pkt.nonce= (KEYBYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+
+
+    data_pkt.cleartext= (DATABYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+    print 'encrypt returned =',encrypt(byref(data_pkt))
+    print 'BlockLength =',data_pkt.datalength
+    for i,b in enumerate(data_pkt.cipher):
+        print 'Data[%d] = %d' % (i, b)
+
     data_pkt.ciper= (CIPHERBYTES)(253, 67, 171, 248, 217, 15, 51, 20,
                                   70, 255, 24, 201, 14, 97, 71, 34,
                                   226, 84, 18, 25, 93, 233, 88, 195,
@@ -73,9 +82,7 @@ if __name__ == '__main__':
                                   200, 38, 216, 241, 52, 246, 130, 246,
                                   196, 82, 209, 184, 238, 36, 225, 26)
 
-    print 'returned =',encrypt(byref(data_pkt))
+    print 'decrypt returned =',decrypt(byref(data_pkt))
     print 'BlockLength =',data_pkt.datalength
     for i,b in enumerate(data_pkt.cleartext):
         print 'Data[%d] = %d' % (i, b)
-
-

@@ -289,7 +289,7 @@ typedef struct CryptoData
    uint8_t  cleartext[MAX_DATABYTES];
 } CryptoData;
 
- int ocb_decncrypt(CryptoData *cryptodata)
+ int py_ocb_decrypt(CryptoData *cryptodata)
 {
     unsigned char i;
     uint8_t zero[MAX_KEYBYTES] ={0,};
@@ -304,6 +304,23 @@ typedef struct CryptoData
 			cryptodata->cipher,
 			cryptodata->datalenght,
 			OCB_DECRYPT);
+}
+
+ int py_ocb_encrypt(CryptoData *cryptodata)
+{
+    unsigned char i;
+    uint8_t zero[MAX_KEYBYTES] ={0,};
+    uint8_t nonce[MAX_KEYBYTES] ={0,};
+    uint8_t a[MAX_DATABYTES] ={0,};
+    for(i = 0; i < 16; i++)
+    	printf("%d ", cryptodata->key[i]);
+
+    return ocb_crypt(cryptodata->cleartext,
+    		cryptodata->key,
+			cryptodata->nonce, a, 0, //ignoring associative text for now
+			cryptodata->cipher,
+			cryptodata->datalenght,
+			OCB_ENCRYPT);
 }
 
 //#include <stdio.h>
