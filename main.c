@@ -31,7 +31,7 @@
 
 #define UART_TX_BUF_SIZE 512                                                          /**< UART TX buffer size. */
 #define UART_RX_BUF_SIZE 1
-#define PLAIN_SIZE 32
+
 #define APP_TIMER_PRESCALER                  0                                          /**< Value of the RTC1 PRESCALER register. */
 #define APP_TIMER_MAX_TIMERS                 3                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
@@ -51,7 +51,7 @@ static app_timer_id_t m_timer;
 
 
 
-
+#define PLAIN_SIZE 32
 static void testOCB(){
 	static uint32_t s_ticks;
 	static uint32_t e_ticks;
@@ -74,14 +74,13 @@ static void testOCB(){
 	APP_ERROR_CHECK(err);
 	err = app_timer_cnt_diff_compute(e_ticks, s_ticks, &r_ticks);
 	APP_ERROR_CHECK(err);
-	printf("\nTook %.3f microseconds to OCB %d size byte datablock \n\n",
-			(float) r_ticks / 32.0, PLAIN_SIZE);
-
-	printf("Chipper: \n");
+//	printf("\nTook %.3f microseconds to OCB %d size byte datablock \n\n",
+//			(float) r_ticks / 32.0, PLAIN_SIZE);
+//
+//	printf("Chipper: \n");
 	for (i = 0; i < (PLAIN_SIZE + TAGBYTES); i++)
-		printf("%u,", (unsigned int) *(c + i));
+		printf("%d, ", (unsigned int) *(c + i));
 	printf("\n");
-
 
 	free(c);
 }
@@ -116,7 +115,6 @@ static void init(){
 	err_code = app_timer_start(m_timer, BATTERY_LEVEL_MEAS_INTERVAL,
 			NULL);
 	APP_ERROR_CHECK(err_code);
-	printf("Booted \n");
 }
 
 int main(void) {
