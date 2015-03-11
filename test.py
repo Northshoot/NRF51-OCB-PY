@@ -58,6 +58,7 @@ if __name__ == '__main__':
     #        print e
 
     from ctypes import cdll
+    import sys
     encrypt_lib = cdll.LoadLibrary("ocb_encrypt_lib.so")
     encrypt = encrypt_lib.py_ocb_encrypt
     decrypt = encrypt_lib.py_ocb_decrypt
@@ -73,8 +74,8 @@ if __name__ == '__main__':
     print 'encrypt returned =',encrypt(byref(data_pkt))
     print 'BlockLength =',data_pkt.datalength
     for i,b in enumerate(data_pkt.cipher):
-        print 'Data[%d] = %d' % (i, b)
-
+        sys.stdout.write('%d, ' %b)
+    sys.stdout.write('\n')
     data_pkt.ciper= (CIPHERBYTES)(253, 67, 171, 248, 217, 15, 51, 20,
                                   70, 255, 24, 201, 14, 97, 71, 34,
                                   226, 84, 18, 25, 93, 233, 88, 195,
