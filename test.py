@@ -72,10 +72,15 @@ if __name__ == '__main__':
     data_pkt.nonce= (KEYBYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
 
     data_pkt.assoc = (DATABYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
-    data_pkt.cleartext= (DATABYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+
+    array_type = DATABYTES
+    data = array_type()
+    for i in range(DATASIZE):
+        data[i]= i
+    data_pkt.cleartext = data
     # bam execute
-    print 'encrypt returned =',encrypt(byref(data_pkt))
-    print 'BlockLength =',data_pkt.datalength
+    print 'encrypt returned =', encrypt(byref(data_pkt))
+    print 'BlockLength =', data_pkt.datalength
     for i,b in enumerate(data_pkt.cipher):
         sys.stdout.write('%d, ' %b)
     sys.stdout.write('\n')
