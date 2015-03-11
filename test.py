@@ -67,7 +67,7 @@ if __name__ == '__main__':
     encrypt.argtypes = [POINTER(EncryptedData)] # create arg type
     encrypt.restype = c_int
     #### test for encryption
-    data_pkt = EncryptedData(32) # creat in data strcuture
+    data_pkt = EncryptedData(DATASIZE) # creat in data strcuture
     data_pkt.key= (KEYBYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
     data_pkt.nonce= (KEYBYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
 
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     sys.stdout.write('\n')
 
     #### test for decrypt
-    data_pkt_decrypt = EncryptedData(32)
+    data_pkt_decrypt = EncryptedData(DATASIZE)
     data_pkt_decrypt.key= (KEYBYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
     data_pkt_decrypt.nonce= (KEYBYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
     data_pkt_decrypt.assoc = (DATABYTES)(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
