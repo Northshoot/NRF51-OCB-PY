@@ -10,21 +10,30 @@ This applicaiton is not suitable for production, not code optimization have been
 
 ## Usage
 Compile shared C library
+```bash
 gcc -o ocb_encrypt_lib.so -shared -fPIC -lcrypto  ocb_shared_lib.c
+```
 
 Compile and upload nrf application
+```bash
 make && nrfjprog program -s /PATH_TO_SDK/s110_nrf51822_7.1.0/s110_nrf51822_7.1.0_softdevice.hex -c _build/nrf51422_xxac.hex
-
+```
 
 ## needed improvements
 ### Dynamic array length:
+
+
 right now these values in C library
+```c
 #define KEYSIZE  16
 #define DATASIZE  32
 #define TAGSIZE  16
 #define CIPHERSIZE  DATASIZE+TAGSIZE
+```
 
-must match python data packet to c
+must be same and manualy edited as in python
+
+```python
 KEYSIZE = 16
 DATASIZE = 32
 TAGSIZE = 16
@@ -41,7 +50,7 @@ class EncryptedData(Structure):
         ("assoc", DATABYTES),
         ("cipher", CIPHERBYTES),
         ("cleartext", DATABYTES)]
-        
+```        
 would be nice to have "automagical" allocation
 
 
