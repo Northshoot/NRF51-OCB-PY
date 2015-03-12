@@ -29,8 +29,7 @@
 int ocb_encrypt(uint8_t *out, uint8_t *k, uint8_t *n, uint8_t *a,
 		unsigned abytes, uint8_t *in, unsigned inbytes);
 
-/* ------------------------------------------------------------------------- */
-bool ocb_init(const uint8_t * key) ;
+
 
 
 #endif /* OCB_H_ */
