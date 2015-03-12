@@ -76,7 +76,7 @@ if __name__ == '__main__':
     array_type = DATABYTES
     data = array_type()
     for i in range(DATASIZE):
-        data[i]= i
+        data[i]= 0
     data_pkt.cleartext = data
     # bam execute
     print 'encrypt returned =', encrypt(byref(data_pkt))

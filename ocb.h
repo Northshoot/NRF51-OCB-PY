@@ -25,11 +25,20 @@
 #error -- KEYBYTES, NONCEBYTES, or TAGBYTES is an illegal value
 #endif
 
+#if !defined(NRF51)
+#error -- This implementations is adopted for NRF51 device
+#endif
+
+
+
 /* ------------------------------------------------------------------------- */
-int ocb_encrypt(uint8_t *out, uint8_t *k, uint8_t *n, uint8_t *a,
-		unsigned abytes, uint8_t *in, unsigned inbytes);
+void ocb_encrypt(uint8_t *c, uint8_t *k, uint8_t *n,
+                 uint8_t *a, unsigned abytes,
+                 uint8_t *p, unsigned pbytes);
 
+/* ------------------------------------------------------------------------- */
 
-
-
+int ocb_decrypt(uint8_t *p, uint8_t *k, uint8_t *n,
+                uint8_t *a, unsigned abytes,
+                uint8_t *c, unsigned cbytes) ;
 #endif /* OCB_H_ */

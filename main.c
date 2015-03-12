@@ -28,6 +28,7 @@
 #include "softdevice_handler.h"
 #include "nrf51.h"
 #include "nrf_error.h"
+#include "tiny-AES128-C/aes.h"
 
 #define UART_TX_BUF_SIZE 512                                                          /**< UART TX buffer size. */
 #define UART_RX_BUF_SIZE 1
@@ -46,12 +47,12 @@ void uart_error_handle(app_uart_evt_t * p_event) {
 }
 
 static app_timer_id_t m_timer;
-#define BATTERY_LEVEL_MEAS_INTERVAL          APP_TIMER_TICKS(2000, APP_TIMER_PRESCALER)
+#define BATTERY_LEVEL_MEAS_INTERVAL          APP_TIMER_TICKS(10000, APP_TIMER_PRESCALER)
 
 
 
 
-#define PLAIN_SIZE 32
+#define PLAIN_SIZE 256
 static void testOCB(){
 	static uint32_t s_ticks;
 	static uint32_t e_ticks;
@@ -59,14 +60,16 @@ static void testOCB(){
 	uint32_t err = 0;
 
 	uint8_t text[PLAIN_SIZE] = { 0, };
-	uint8_t zeroes[16] = { 0, };
+	uint8_t p[PLAIN_SIZE] = { 1, };
+	uint8_t zeroes[PLAIN_SIZE] = { 0, };
 	uint8_t nonce[16] = { 0, };
 
 	uint8_t keyArray[KEYBYTES] = { 0, };
 	uint8_t *c;
-	unsigned i;
+	//unsigned i;
 	/* Encrypt and output RFC vector */
 	c = malloc(PLAIN_SIZE + TAGBYTES);
+	/// ----- encrypt
 	err = app_timer_cnt_get(&s_ticks);
 	APP_ERROR_CHECK(err);
 	ocb_encrypt(c, keyArray, nonce, zeroes, PLAIN_SIZE, text, PLAIN_SIZE);
@@ -74,19 +77,78 @@ static void testOCB(){
 	APP_ERROR_CHECK(err);
 	err = app_timer_cnt_diff_compute(e_ticks, s_ticks, &r_ticks);
 	APP_ERROR_CHECK(err);
-//	printf("\nTook %.3f microseconds to OCB %d size byte datablock \n\n",
-//			(float) r_ticks / 32.0, PLAIN_SIZE);
-//
-//	printf("Chipper: \n");
-	for (i = 0; i < (PLAIN_SIZE + TAGBYTES); i++)
-		printf("%d, ", (unsigned int) *(c + i));
-	printf("\n");
+	printf("Took %.3f microseconds to encrypt OCB %d size byte datablock \n\n",
+			(float) r_ticks / 32.0, PLAIN_SIZE);
 
+//	printf("Chipper: \n");
+//	for (i = 0; i < (PLAIN_SIZE + TAGBYTES); i++)
+//		printf("%d, ", (unsigned int) *(c + i));
+//	printf("\n");
+
+	/// ----- decrypt
+	err = app_timer_cnt_get(&s_ticks);
+	APP_ERROR_CHECK(err);
+	ocb_decrypt(p, keyArray, nonce, zeroes, PLAIN_SIZE, c, PLAIN_SIZE);
+	err = app_timer_cnt_get(&e_ticks);
+	APP_ERROR_CHECK(err);
+	err = app_timer_cnt_diff_compute(e_ticks, s_ticks, &r_ticks);
+	APP_ERROR_CHECK(err);
+	printf("Took %.3f microseconds to decrypt OCB %d size byte datablock \n\n",
+			(float) r_ticks / 32.0, PLAIN_SIZE);
+
+//	printf("cleartext: \n");
+//	for (i = 0; i < PLAIN_SIZE; i++)
+//		printf("%d, ", (unsigned int) p[i]);
+//	printf("\n");
+	printf("\n");
 	free(c);
 }
 
+static void testAES(){
+	static uint32_t s_ticks;
+	static uint32_t e_ticks;
+	static uint32_t r_ticks;
+	uint32_t err, i = 0;
+	uint8_t in[16] = { 0, };
+	uint8_t out[16] = { 0, };
+	uint8_t keyArray[KEYBYTES] = { 0, };
+	nrf_ecb_set_key(keyArray);
+	printf("HW encrypt: \n");
+	err = app_timer_cnt_get(&s_ticks);
+	APP_ERROR_CHECK(err);
+
+	nrf_ecb_crypt(out, in);
+
+	err = app_timer_cnt_get(&e_ticks);
+	APP_ERROR_CHECK(err);
+	err = app_timer_cnt_diff_compute(e_ticks, s_ticks, &r_ticks);
+	APP_ERROR_CHECK(err);
+	printf("\nTook %.3f ms to HW-AES %d size byte datablock \n\n",
+			(float) r_ticks / 32.0, 16);
+	printf("Chipper: \n");
+	for (i = 0; i < 16; i++)
+		printf("%d, ", (unsigned int) out[i]);
+	printf("\n");
+
+	printf("SW encrypt: \n");
+	err = app_timer_cnt_get(&s_ticks);
+	APP_ERROR_CHECK(err);
+
+	AES128_ECB_encrypt(in, keyArray, out);
+
+	err = app_timer_cnt_get(&e_ticks);
+	APP_ERROR_CHECK(err);
+	err = app_timer_cnt_diff_compute(e_ticks, s_ticks, &r_ticks);
+	APP_ERROR_CHECK(err);
+	printf("\nTook %.3f ms to SW-AES %d size byte datablock \n\n",
+			(float) r_ticks / 32.0, 16);
+	printf("Chipper: \n");
+	for (i = 0; i < 16; i++)
+		printf("%d, ", (unsigned int) out[i]);
+	printf("\n");
+}
 static void timer_handler(void * p_context) {
-	testOCB();
+	//testOCB();
 }
 
 static void init(){
@@ -119,7 +181,9 @@ static void init(){
 
 int main(void) {
 	init();
+	nrf_ecb_init();
 	testOCB(); //will get executed by timer
+	//testAES();
 	return 0;
 
 }

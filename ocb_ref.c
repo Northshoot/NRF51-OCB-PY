@@ -302,7 +302,7 @@ const uint8_t *npub,
 const uint8_t *k
 )
 {
-    *mlen = clen - TAGBYTES;
+    *clem = mlen - TAGBYTES;
     return ocb_crypt(m, k, npub, ad, adlen, c, clen, OCB_DECRYPT);
 }
 

@@ -18,6 +18,18 @@ Compile and upload nrf application
 ```bash
 make && nrfjprog program -s /PATH_TO_SDK/s110_nrf51822_7.1.0/s110_nrf51822_7.1.0_softdevice.hex -c _build/nrf51422_xxac.hex
 ```
+## tests
+Security test zero vectors			
+data size	encrypt (HW-AES)	decrypt (SW_AES)	ration SW/HW
+32	0.969	1.594	1.64
+64	1.53	3.656	2.39
+128	2.594	9.25	3.57
+256	5.219	18.281	3.50
+512	10.062	34.906	3.47
+1024	19.031	69.406	3.65
+2048	36.25	138.562	3.82
+4096	70.688	276.969	3.92
+
 
 ## needed improvements
 ### Dynamic array length:

@@ -32,7 +32,7 @@
 #include <stdio.h>
 #include "ocb.h"
 #include "nrf_soc.h"
-
+#include "tiny-AES128-C/aes.h"
 #define KEYBYTES   (128/8)
 #define NONCEBYTES (96/8)
 #define TAGBYTES   (128/8)
@@ -48,7 +48,12 @@ typedef uint8_t block[BLOCK_SIZE];
 typedef uint8_t AES_KEY[SOC_ECB_KEY_LENGTH];
 
 
+//decryption uses sotware AES hence it is much slower
+static inline void  AES_decrypt(block in, block out, uint8_t* aes_key){
+	 AES128_ECB_decrypt(in, aes_key, out);
+}
 
+// we need to create a struct for the nrf sd_ecb encryption
 static inline void AES_encrypt(block in, block out, uint8_t* aes_key) {
 	nrf_ecb_hal_data_t datain = { .key = { 0, }, .cleartext = { 0, }, .ciphertext =
 			{ 0, } };
@@ -137,14 +142,17 @@ static void hash(block result, uint8_t *k, uint8_t *a, unsigned abytes) {
 
 /* ------------------------------------------------------------------------- */
 
-int ocb_encrypt(uint8_t *out, uint8_t *k, uint8_t *n, uint8_t *a,
-		unsigned abytes, uint8_t *in, unsigned inbytes) {
+int ocb_crypt(uint8_t *out, uint8_t *k, uint8_t *n, uint8_t *a,
+		unsigned abytes, uint8_t *in, unsigned inbytes, int encrypting) {
 //    AES_KEY aes_encrypt_key;
 	block lstar, ldollar, sum, offset, ktop, pad, nonce, tag, tmp;
 	uint8_t stretch[24];
 	unsigned bottom, byteshift, bitshift, i;
 
-	/* Key-dependent variables */
+    if ( ! encrypting ) {
+         if (inbytes < TAGBYTES) return -1;
+         inbytes -= TAGBYTES;
+    }
 
 	/* L_* = ENCIPHER(K, zeros(128)) */
 	memset(tmp, 0, 16);
@@ -191,11 +199,20 @@ int ocb_encrypt(uint8_t *out, uint8_t *k, uint8_t *n, uint8_t *a,
 		xor_block(offset, offset, tmp);
 
 		xor_block(tmp, offset, in);
-		/* P_i = Offset_i xor DECIPHER(K, C_i xor Offset_i) */
-		AES_encrypt(tmp, tmp, k);
-		xor_block(out, offset, tmp);
-		/* Checksum_i = Checksum_{i-1} xor P_i */
-		xor_block(sum, in, sum);
+        if (encrypting) {
+            /* P_i = Offset_i xor DECIPHER(K, C_i xor Offset_i) */
+        	AES_encrypt(tmp, tmp, k);
+            xor_block(out, offset, tmp);
+            /* Checksum_i = Checksum_{i-1} xor P_i */
+            xor_block(sum, in, sum);
+        } else {
+            /* P_i = Offset_i xor DECIPHER(K, C_i xor Offset_i) */
+            AES_decrypt(tmp, tmp, k);
+            xor_block(out, offset, tmp);
+            /* Checksum_i = Checksum_{i-1} xor P_i */
+            xor_block(sum, out, sum);
+        }
+
 	}
 
 	/* Process any final partial block and compute raw tag */
@@ -207,16 +224,27 @@ int ocb_encrypt(uint8_t *out, uint8_t *k, uint8_t *n, uint8_t *a,
 		/* Pad = ENCIPHER(K, Offset_*) */
 		AES_encrypt(offset, pad, k);
 
-		// if (encrypting) {
-		/* Checksum_* = Checksum_m xor (P_* || 1 || zeros(127-bitlen(P_*))) */
-		memset(tmp, 0, 16);
-		memcpy(tmp, in, inbytes);
-		tmp[inbytes] = 0x80;
-		xor_block(sum, tmp, sum);
-		/* C_* = P_* xor Pad[1..bitlen(P_*)] */
-		xor_block(pad, tmp, pad);
-		memcpy(out, pad, inbytes);
-		out = out + inbytes;
+        if (encrypting) {
+            /* Checksum_* = Checksum_m xor (P_* || 1 || zeros(127-bitlen(P_*))) */
+            memset(tmp, 0, 16);
+            memcpy(tmp, in, inbytes);
+            tmp[inbytes] = 0x80;
+            xor_block(sum, tmp, sum);
+            /* C_* = P_* xor Pad[1..bitlen(P_*)] */
+            xor_block(pad, tmp, pad);
+            memcpy(out, pad, inbytes);
+            out = out + inbytes;
+        } else {
+            /* P_* = C_* xor Pad[1..bitlen(C_*)] */
+            memcpy(tmp, pad, 16);
+            memcpy(tmp, in, inbytes);
+            xor_block(tmp, pad, tmp);
+            tmp[inbytes] = 0x80;     /* tmp == P_* || 1 || zeros(127-bitlen(P_*)) */
+            memcpy(out, tmp, inbytes);
+            /* Checksum_* = Checksum_m xor (P_* || 1 || zeros(127-bitlen(P_*))) */
+            xor_block(sum, tmp, sum);
+            in = in + inbytes;
+        }
 	}
 	/* Tag = ENCIPHER(K, Checksum xor Offset xor L_$) xor HASH(K,A) */
 	xor_block(tmp, sum, offset);
@@ -225,9 +253,26 @@ int ocb_encrypt(uint8_t *out, uint8_t *k, uint8_t *n, uint8_t *a,
 	hash(tmp, k, a, abytes);
 	xor_block(tag, tmp, tag);
 
-	memcpy(out, tag, TAGBYTES);
-	return 0;
+    if (encrypting) {
+        memcpy(out, tag, TAGBYTES);
+        return 0;
+    } else
+        return (memcmp(in,tag,TAGBYTES) ? -1 : 0);     /* Check for validity */
 
+}
+
+void ocb_encrypt(uint8_t *c, uint8_t *k, uint8_t *n,
+                 uint8_t *a, unsigned abytes,
+                 uint8_t *p, unsigned pbytes) {
+     ocb_crypt(c, k, n, a, abytes, p, pbytes, OCB_ENCRYPT);
+}
+
+/* ------------------------------------------------------------------------- */
+
+int ocb_decrypt(uint8_t *p, uint8_t *k, uint8_t *n,
+                uint8_t *a, unsigned abytes,
+                uint8_t *c, unsigned cbytes) {
+    return ocb_crypt(p, k, n, a, abytes, c, cbytes, OCB_DECRYPT);
 }
 
 

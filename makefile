@@ -48,6 +48,7 @@ $(NRF51SDK)/components/drivers_nrf/uart/app_uart_fifo.c \
 $(NRF51SDK)/components/drivers_nrf/hal/nrf_ecb.c \
 $(NRF51SDK)/components/softdevice/common/softdevice_handler/softdevice_handler.c \
 $(NRF51SDK)/components/libraries/timer/app_timer.c \
+tiny-AES128-C/aes.c \
 ocb.c \
 $(MAIN_FILE) \
 
@@ -67,6 +68,7 @@ INC_PATHS += -I$(NRF51SDK)/components/softdevice/s110/headers
 INC_PATHS += -I$(NRF51SDK)/components/softdevice/common/softdevice_handler
 INC_PATHS += -I$(NRF51SDK)/components/libraries/scheduler
 INC_PATHS += -I$(NRF51SDK)/components/libraries/timer/
+INC_PATHS += -Itiny-AES128-C/
 
 OBJECT_DIRECTORY = _build
 LISTING_DIRECTORY = $(OBJECT_DIRECTORY)
