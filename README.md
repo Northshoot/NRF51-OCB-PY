@@ -8,6 +8,13 @@ This application supports version 3, hence the usage of the referece code.
 
 This applicaiton is not suitable for production, not code optimization have been done.
 
+## Getting
+You need to include submodules as well. I desided to fork and clean tinyAES to minimize the code size. We have only AES ECB mode hence, the other mode not needed. The NRF51 provides encryption, hence we need only soft decrypt
+
+```bash
+git clone --recursive https://github.com/Northshoot/NRF51-OCB-PY.git
+```
+
 ## Usage
 Compile shared C library
 ```bash
