@@ -87,3 +87,5 @@ Under this license, you are authorized to make, use, and distribute open-source 
 http://web.cs.ucdavis.edu/~rogaway/ocb/
 https://en.wikipedia.org/wiki/OCB_mode
 
+## Thanks
+Huge thanks for Henry & Neil for giving ideas in the dark moments!
