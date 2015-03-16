@@ -104,51 +104,9 @@ static void testOCB(){
 	free(c);
 }
 
-static void testAES(){
-	static uint32_t s_ticks;
-	static uint32_t e_ticks;
-	static uint32_t r_ticks;
-	uint32_t err, i = 0;
-	uint8_t in[16] = { 0, };
-	uint8_t out[16] = { 0, };
-	uint8_t keyArray[KEYBYTES] = { 0, };
-	nrf_ecb_set_key(keyArray);
-	printf("HW encrypt: \n");
-	err = app_timer_cnt_get(&s_ticks);
-	APP_ERROR_CHECK(err);
 
-	nrf_ecb_crypt(out, in);
-
-	err = app_timer_cnt_get(&e_ticks);
-	APP_ERROR_CHECK(err);
-	err = app_timer_cnt_diff_compute(e_ticks, s_ticks, &r_ticks);
-	APP_ERROR_CHECK(err);
-	printf("\nTook %.3f ms to HW-AES %d size byte datablock \n\n",
-			(float) r_ticks / 32.0, 16);
-	printf("Chipper: \n");
-	for (i = 0; i < 16; i++)
-		printf("%d, ", (unsigned int) out[i]);
-	printf("\n");
-
-	printf("SW encrypt: \n");
-	err = app_timer_cnt_get(&s_ticks);
-	APP_ERROR_CHECK(err);
-
-	AES128_ECB_encrypt(in, keyArray, out);
-
-	err = app_timer_cnt_get(&e_ticks);
-	APP_ERROR_CHECK(err);
-	err = app_timer_cnt_diff_compute(e_ticks, s_ticks, &r_ticks);
-	APP_ERROR_CHECK(err);
-	printf("\nTook %.3f ms to SW-AES %d size byte datablock \n\n",
-			(float) r_ticks / 32.0, 16);
-	printf("Chipper: \n");
-	for (i = 0; i < 16; i++)
-		printf("%d, ", (unsigned int) out[i]);
-	printf("\n");
-}
 static void timer_handler(void * p_context) {
-	//testOCB();
+	testOCB();
 }
 
 static void init(){
