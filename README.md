@@ -3,8 +3,8 @@ A port of OCB implementation for NRF51 using softdevice.
 the test.py allows to receive data from uart and decrypt it.
 Same py implementation can be used in the cloud, go figure.
 
-Note: there is a Python OCB implementation, however, it supports version 2.
-This application supports version 3, hence the usage of the referece code. 
+Note: there is a Python OCB implementation, however, it supports only version 2.
+This application supports version 3, hence python example uses ctypes to speed-up crypto and reuses same (ok, almost the same) c implementaiton as on node. 
 
 This applicaiton is not suitable for production, not code optimization have been done.
 
@@ -87,3 +87,5 @@ Under this license, you are authorized to make, use, and distribute open-source 
 http://web.cs.ucdavis.edu/~rogaway/ocb/
 https://en.wikipedia.org/wiki/OCB_mode
 
+## Thanks
+Huge thanks for Henry & Neil for giving ideas in the dark moments!
